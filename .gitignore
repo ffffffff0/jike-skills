@@ -1,0 +1,11 @@
+# 即刻 Token（包含敏感认证信息，不能提交到 Git）
+.env
+
+# 日志文件
+*.log
+
+# macOS 系统文件
+.DS_Store
+
+# 临时文件
+*.tmp
