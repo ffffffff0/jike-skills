@@ -91,6 +91,8 @@ jike_refresh_token                # 刷新过期的 access-token
 
 **API 端点和请求格式**：见 [references/api.md](references/api.md)
 
+**多步工作流**（分页采集、批量点赞、定时发布等）：见 [references/workflows.md](references/workflows.md)
+
 ## 最佳实践
 
 - 批量操作在请求间加 `sleep 1`，避免触发风控

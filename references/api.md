@@ -26,6 +26,8 @@ User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36
 | 取关用户 | `/user/unfollow` | `{"followId": "<user-id>"}` |
 | 用户信息 | `/profile/getUserInfo` | `{"username": "<user-id>"}` |
 | 搜索话题 | `/topic/search` | `{"keywords": "...", "pageNo": 1}` |
+| 订阅话题 | `/topics/follow` | `{"topicId": "<topic-id>"}` |
+| 用户动态 | `/userFeeds/getUserFeeds` | `{"username": "<user-id>", "loadMoreKey": null}` |
 | 刷新 Token | `/auth/refreshToken` | `{}` (只需 refresh-token header) |
 
 ## 关注流响应结构
