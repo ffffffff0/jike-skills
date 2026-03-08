@@ -18,7 +18,7 @@ if [ -z "$JIKE_ACCESS_TOKEN" ] || [ -z "$JIKE_REFRESH_TOKEN" ]; then
   return 1 2>/dev/null || exit 1
 fi
 
-JIKE_BASE_URL="${JIKE_BASE_URL:-https://app.jike.ruguoapp.com/1.0}"
+JIKE_BASE_URL="${JIKE_BASE_URL:-https://api.ruguoapp.com}"
 
 # === 内部辅助函数 ===
 
@@ -33,6 +33,16 @@ jike_request() {
     -H "x-jike-refresh-token: $JIKE_REFRESH_TOKEN" \
     -H "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36" \
     -d "$body"
+}
+
+# jike_get <endpoint>
+# 发送 GET 请求，返回 JSON 响应
+jike_get() {
+  local endpoint="$1"
+  curl -s -X GET "${JIKE_BASE_URL}${endpoint}" \
+    -H "x-jike-access-token: $JIKE_ACCESS_TOKEN" \
+    -H "x-jike-refresh-token: $JIKE_REFRESH_TOKEN" \
+    -H "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"
 }
 
 # _jike_print <response>
@@ -61,21 +71,21 @@ _jike_feed() {
 # jike_me
 # 获取当前登录用户信息
 jike_me() {
-  _jike_print "$(jike_request "/profile/getMyUserInfo")"
+  _jike_print "$(jike_get "/1.0/users/profile")"
 }
 
 # jike_following_feed [loadMoreKey]
 # 获取关注流动态列表
 # 参数：loadMoreKey（可选，用于翻页，从上次响应中获取）
 jike_following_feed() {
-  _jike_feed "/userFeeds/followingUpdates" "$1"
+  _jike_feed "/1.0/personalUpdate/followingUpdates" "$1"
 }
 
 # jike_recommended_feed [loadMoreKey]
 # 获取推荐流动态列表
 # 参数：loadMoreKey（可选，用于翻页，从上次响应中获取）
 jike_recommended_feed() {
-  _jike_feed "/userFeeds/recommendedUpdates" "$1"
+  _jike_feed "/1.0/recommendFeed/list" "$1"
 }
 
 # jike_like <post_id>
@@ -88,7 +98,7 @@ jike_like() {
     echo "参数：post_id - 动态 ID（从 feed 响应中的 id 字段获取）"
     return 1
   fi
-  _jike_print "$(jike_request "/originalPost/like" "{\"id\": \"${post_id}\"}")"
+  _jike_print "$(jike_request "/1.0/originalPosts/like" "{\"id\": \"${post_id}\"}")"
 }
 
 # jike_unlike <post_id>
@@ -101,7 +111,7 @@ jike_unlike() {
     echo "参数：post_id - 动态 ID"
     return 1
   fi
-  _jike_print "$(jike_request "/originalPost/unlike" "{\"id\": \"${post_id}\"}")"
+  _jike_print "$(jike_request "/1.0/originalPosts/unlike" "{\"id\": \"${post_id}\"}")"
 }
 
 # jike_comment <post_id> <content>
@@ -117,7 +127,7 @@ jike_comment() {
   fi
   local body
   body=$(python3 -c "import json,sys; print(json.dumps({'targetId': sys.argv[1], 'targetType': 'ORIGINAL_POST', 'content': sys.argv[2]}))" "$post_id" "$content")
-  _jike_print "$(jike_request "/comment/add" "$body")"
+  _jike_print "$(jike_request "/1.0/comments/add" "$body")"
 }
 
 # jike_post <content> [topic_id]
@@ -139,7 +149,7 @@ if len(sys.argv) > 2 and sys.argv[2]:
     d['topicId'] = sys.argv[2]
 print(json.dumps(d))
 " "$content" "${topic_id:-}")
-  _jike_print "$(jike_request "/originalPost/save" "$body")"
+  _jike_print "$(jike_request "/1.0/originalPosts/create" "$body")"
 }
 
 # jike_follow <user_id>
@@ -152,7 +162,7 @@ jike_follow() {
     echo "参数：user_id - 用户 ID"
     return 1
   fi
-  _jike_print "$(jike_request "/user/follow" "{\"followId\": \"${user_id}\"}")"
+  _jike_print "$(jike_request "/1.0/userRelation/follow" "{\"followId\": \"${user_id}\"}")"
 }
 
 # jike_unfollow <user_id>
@@ -165,7 +175,7 @@ jike_unfollow() {
     echo "参数：user_id - 用户 ID"
     return 1
   fi
-  _jike_print "$(jike_request "/user/unfollow" "{\"followId\": \"${user_id}\"}")"
+  _jike_print "$(jike_request "/1.0/userRelation/unfollow" "{\"followId\": \"${user_id}\"}")"
 }
 
 # jike_user <user_id>
@@ -178,7 +188,7 @@ jike_user() {
     echo "参数：user_id - 用户 ID"
     return 1
   fi
-  _jike_print "$(jike_request "/profile/getUserInfo" "{\"username\": \"${user_id}\"}")"
+  _jike_print "$(jike_request "/1.0/users/profile" "{\"username\": \"${user_id}\"}")"
 }
 
 # jike_search_topic <keywords> [page]
@@ -194,7 +204,7 @@ jike_search_topic() {
   fi
   local body
   body=$(printf '{"keywords": "%s", "pageNo": %s}' "$keywords" "$page")
-  _jike_print "$(jike_request "/topic/search" "$body")"
+  _jike_print "$(jike_request "/1.0/search/integrate" "$body")"
 }
 
 # jike_delete_post <post_id>
@@ -206,7 +216,7 @@ jike_delete_post() {
     echo "用法：jike_delete_post <post_id>"
     return 1
   fi
-  _jike_print "$(jike_request "/originalPost/remove" "{\"id\": \"${post_id}\"}")"
+  _jike_print "$(jike_request "/1.0/originalPosts/remove" "{\"id\": \"${post_id}\"}")"
 }
 
 # jike_topic_follow <topic_id>
@@ -218,7 +228,7 @@ jike_topic_follow() {
     echo "用法：jike_topic_follow <topic_id>"
     return 1
   fi
-  _jike_print "$(jike_request "/topics/follow" "{\"topicId\": \"${topic_id}\"}")"
+  _jike_print "$(jike_request "/1.0/users/topics/changeSubscriptionStatus" "{\"topicId\": \"${topic_id}\"}")"
 }
 
 # jike_refresh_token
@@ -226,27 +236,24 @@ jike_topic_follow() {
 # 自动更新 .env 文件中的 JIKE_ACCESS_TOKEN
 jike_refresh_token() {
   local response
-  response=$(jike_request "/auth/refreshToken")
+  response=$(jike_request "/app_auth_tokens.refresh")
   if [ -z "$response" ]; then
     echo "错误：请求失败，请检查网络连接或 Refresh Token 是否有效。"
     return 1
   fi
-  local new_token
-  new_token=$(echo "$response" | python3 -c "import sys, json; d=json.load(sys.stdin); print(d.get('x-jike-access-token', ''))" 2>/dev/null)
-  if [ -z "$new_token" ]; then
+  local new_access new_refresh
+  new_access=$(echo "$response" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('x-jike-access-token',''))" 2>/dev/null)
+  new_refresh=$(echo "$response" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('x-jike-refresh-token',''))" 2>/dev/null)
+  if [ -z "$new_access" ]; then
     echo "错误：无法从响应中解析新的 access-token，原始响应："
     _jike_print "$response"
     return 1
   fi
-  # 更新内存中的变量
-  JIKE_ACCESS_TOKEN="$new_token"
-  # 更新 .env 文件
-  if grep -q "JIKE_ACCESS_TOKEN" .env; then
-    sed -i.bak "s|JIKE_ACCESS_TOKEN=.*|JIKE_ACCESS_TOKEN=${new_token}|" .env && rm -f .env.bak
-  else
-    echo "JIKE_ACCESS_TOKEN=${new_token}" >> .env
-  fi
-  echo "access-token 已刷新并更新至 .env 文件。"
+  JIKE_ACCESS_TOKEN="$new_access"
+  [ -n "$new_refresh" ] && JIKE_REFRESH_TOKEN="$new_refresh"
+  sed -i '' "s|JIKE_ACCESS_TOKEN=.*|JIKE_ACCESS_TOKEN=${new_access}|" .env
+  [ -n "$new_refresh" ] && sed -i '' "s|JIKE_REFRESH_TOKEN=.*|JIKE_REFRESH_TOKEN=${new_refresh}|" .env
+  echo "Token 已刷新并更新至 .env 文件。"
 }
 
 echo "即刻 API 函数库已加载。可用函数：jike_me, jike_following_feed, jike_recommended_feed, jike_like, jike_unlike, jike_comment, jike_post, jike_delete_post, jike_follow, jike_unfollow, jike_user, jike_search_topic, jike_topic_follow, jike_refresh_token"
