@@ -59,17 +59,6 @@ curl -s -X POST "https://app.jike.ruguoapp.com/1.0/profile/getMyUserInfo" \
 
 成功响应包含 `"user"` 字段；若返回 401 则 Token 失效，需重新提取。
 
-## API 配置
-
-```bash
-BASE_URL="https://app.jike.ruguoapp.com/1.0"
-
-# 每次请求都需要的通用 headers
--H "Content-Type: application/json"
--H "x-jike-access-token: $JIKE_ACCESS_TOKEN"
--H "x-jike-refresh-token: $JIKE_REFRESH_TOKEN"
--H "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"
-```
 
 ## 执行操作
 

@@ -51,8 +51,8 @@ _jike_print() {
 _jike_feed() {
   local endpoint="$1"
   local load_more_key="$2"
-  local body="{}"
-  [ -n "$load_more_key" ] && body="{\"loadMoreKey\": \"${load_more_key}\"}"
+  local body='{"loadMoreKey": null}'
+  [ -n "$load_more_key" ] && body="{\"loadMoreKey\": ${load_more_key}}"
   _jike_print "$(jike_request "$endpoint" "$body")"
 }
 
@@ -116,7 +116,7 @@ jike_comment() {
     return 1
   fi
   local body
-  body=$(printf '{"targetId": "%s", "targetType": "ORIGINAL_POST", "content": "%s"}' "$post_id" "$content")
+  body=$(python3 -c "import json,sys; print(json.dumps({'targetId': sys.argv[1], 'targetType': 'ORIGINAL_POST', 'content': sys.argv[2]}))" "$post_id" "$content")
   _jike_print "$(jike_request "/comment/add" "$body")"
 }
 
@@ -132,11 +132,13 @@ jike_post() {
     return 1
   fi
   local body
-  if [ -n "$topic_id" ]; then
-    body=$(printf '{"content": "%s", "topicId": "%s", "pictureKeys": [], "syncToPersonalUpdates": true}' "$content" "$topic_id")
-  else
-    body=$(printf '{"content": "%s", "pictureKeys": [], "syncToPersonalUpdates": true}' "$content")
-  fi
+  body=$(python3 -c "
+import json, sys
+d = {'content': sys.argv[1], 'pictureKeys': [], 'syncToPersonalUpdates': True}
+if len(sys.argv) > 2 and sys.argv[2]:
+    d['topicId'] = sys.argv[2]
+print(json.dumps(d))
+" "$content" "${topic_id:-}")
   _jike_print "$(jike_request "/originalPost/save" "$body")"
 }
 
@@ -150,7 +152,7 @@ jike_follow() {
     echo "参数：user_id - 用户 ID"
     return 1
   fi
-  _jike_print "$(jike_request "/user/follow" "{\"id\": \"${user_id}\"}")"
+  _jike_print "$(jike_request "/user/follow" "{\"followId\": \"${user_id}\"}")"
 }
 
 # jike_unfollow <user_id>
@@ -163,7 +165,7 @@ jike_unfollow() {
     echo "参数：user_id - 用户 ID"
     return 1
   fi
-  _jike_print "$(jike_request "/user/unfollow" "{\"id\": \"${user_id}\"}")"
+  _jike_print "$(jike_request "/user/unfollow" "{\"followId\": \"${user_id}\"}")"
 }
 
 # jike_user <user_id>
@@ -176,7 +178,7 @@ jike_user() {
     echo "参数：user_id - 用户 ID"
     return 1
   fi
-  _jike_print "$(jike_request "/profile/getUserInfo" "{\"id\": \"${user_id}\"}")"
+  _jike_print "$(jike_request "/profile/getUserInfo" "{\"username\": \"${user_id}\"}")"
 }
 
 # jike_search_topic <keywords> [page]
@@ -191,8 +193,32 @@ jike_search_topic() {
     return 1
   fi
   local body
-  body=$(printf '{"keywords": "%s", "page": %s}' "$keywords" "$page")
+  body=$(printf '{"keywords": "%s", "pageNo": %s}' "$keywords" "$page")
   _jike_print "$(jike_request "/topic/search" "$body")"
+}
+
+# jike_delete_post <post_id>
+# 删除自己发布的动态
+# 参数：post_id - 动态 ID
+jike_delete_post() {
+  local post_id="$1"
+  if [ -z "$post_id" ]; then
+    echo "用法：jike_delete_post <post_id>"
+    return 1
+  fi
+  _jike_print "$(jike_request "/originalPost/remove" "{\"id\": \"${post_id}\"}")"
+}
+
+# jike_topic_follow <topic_id>
+# 订阅话题
+# 参数：topic_id - 话题 ID（从 jike_search_topic 响应中获取）
+jike_topic_follow() {
+  local topic_id="$1"
+  if [ -z "$topic_id" ]; then
+    echo "用法：jike_topic_follow <topic_id>"
+    return 1
+  fi
+  _jike_print "$(jike_request "/topics/follow" "{\"topicId\": \"${topic_id}\"}")"
 }
 
 # jike_refresh_token
@@ -223,4 +249,4 @@ jike_refresh_token() {
   echo "access-token 已刷新并更新至 .env 文件。"
 }
 
-echo "即刻 API 函数库已加载。可用函数：jike_me, jike_following_feed, jike_like, jike_comment, jike_post, jike_follow, jike_user, jike_search_topic"
+echo "即刻 API 函数库已加载。可用函数：jike_me, jike_following_feed, jike_recommended_feed, jike_like, jike_unlike, jike_comment, jike_post, jike_delete_post, jike_follow, jike_unfollow, jike_user, jike_search_topic, jike_topic_follow, jike_refresh_token"
