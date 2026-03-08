@@ -1,18 +1,16 @@
 ---
 name: 即刻（Jike）API 操作
 description: |
-  通过保存的认证 Token 和 curl/HTTP 请求直接调用即刻 API，
-  无需浏览器自动化。适用于：
-  - 批量读取关注流、话题、用户动态
+  通过保存的认证 Token 和 curl/HTTP 请求直接调用即刻 API，无需浏览器自动化。
+  当用户想要操作即刻（Jike / web.okjike.com）社交平台时使用，包括：
+  - 读取关注流、话题、用户动态
   - 点赞、评论、转发等社交互动
   - 发布动态（文字 + 话题）
   - 关注/取关用户、订阅话题
   - 搜索用户、话题、内容
-  基于 curl + 即刻逆向工程 API 端点。
-allowed-tools:
-  - Bash
-  - Read
-  - Write
+  - 批量操作和定时自动化任务
+  不适合：处理验证码、图片上传、需要截图的操作。
+  基于 curl + 逆向工程 API 端点（scripts/helpers.sh 封装了所有操作）。
 ---
 
 # 即刻（Jike）API 操作
@@ -23,22 +21,6 @@ allowed-tools:
 > 2. API 端点是逆向工程发现的，可能随时变更；若请求返回 404 或响应格式不符预期，需用 Chrome DevTools Network Tab 重新发现端点。
 > 3. 请求频率不能过高：批量操作每次间隔 ≥ 1 秒，避免触发风控。
 > 4. 完成操作后必须汇报结果（成功/失败、数据摘要）。
-
-## 概述
-
-Claude Code 读取 .env 中的 Token，用 curl 向即刻 API 发送请求，解析 JSON 响应。不需要浏览器，可完全在终端中运行。
-
-## 何时使用
-
-**适合使用：**
-- 批量操作（批量点赞、批量获取动态列表）
-- 内容采集（抓取关注流、话题动态）
-- 自动化定时任务
-
-**不适合使用：**
-- 需要查看页面截图
-- 处理验证码
-- 操作图片上传
 
 ## 前置条件：Token 配置
 
@@ -89,132 +71,29 @@ BASE_URL="https://app.jike.ruguoapp.com/1.0"
 -H "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"
 ```
 
-## 常用操作 API
+## 执行操作
 
-> **提示：** 项目提供了 `scripts/helpers.sh` 函数库，封装了以下所有 curl 操作。可直接 `source scripts/helpers.sh` 后调用 `jike_me`、`jike_following_feed`、`jike_like` 等函数，无需手动拼写 curl 命令。
-
-### 获取关注流
+优先使用 `scripts/helpers.sh` 封装好的函数：
 
 ```bash
-source .env
-curl -s -X POST "https://app.jike.ruguoapp.com/1.0/userFeeds/followingUpdates" \
-  -H "Content-Type: application/json" \
-  -H "x-jike-access-token: $JIKE_ACCESS_TOKEN" \
-  -H "x-jike-refresh-token: $JIKE_REFRESH_TOKEN" \
-  -d '{"loadMoreKey": null}' | python3 -m json.tool
+source scripts/helpers.sh
+
+jike_me                           # 验证登录 + 查看个人信息
+jike_following_feed               # 关注流（首页）
+jike_like "<post-id>"             # 点赞
+jike_comment "<post-id>" "内容"   # 评论
+jike_post "动态内容"              # 发布动态
+jike_post "内容" "<topic-id>"     # 发布带话题的动态
+jike_follow "<user-id>"           # 关注用户
+jike_search_topic "关键词"        # 搜索话题
+jike_refresh_token                # 刷新过期的 access-token
 ```
 
-响应字段说明：`data[]` 是动态列表，每条动态有 `id`、`content`、`likeCount`、`user.screenName`；`loadMoreKey` 用于翻页。
-
-### 点赞动态
-
-```bash
-source .env
-curl -s -X POST "https://app.jike.ruguoapp.com/1.0/originalPost/like" \
-  -H "Content-Type: application/json" \
-  -H "x-jike-access-token: $JIKE_ACCESS_TOKEN" \
-  -H "x-jike-refresh-token: $JIKE_REFRESH_TOKEN" \
-  -d '{"id": "<post-id>"}'
-```
-
-将 `<post-id>` 替换为从关注流中获取的动态 ID。
-
-### 发表评论
-
-```bash
-source .env
-curl -s -X POST "https://app.jike.ruguoapp.com/1.0/comment/add" \
-  -H "Content-Type: application/json" \
-  -H "x-jike-access-token: $JIKE_ACCESS_TOKEN" \
-  -H "x-jike-refresh-token: $JIKE_REFRESH_TOKEN" \
-  -d '{"targetId": "<post-id>", "targetType": "ORIGINAL_POST", "content": "你的评论内容"}'
-```
-
-### 发布新动态
-
-```bash
-source .env
-curl -s -X POST "https://app.jike.ruguoapp.com/1.0/originalPost/save" \
-  -H "Content-Type: application/json" \
-  -H "x-jike-access-token: $JIKE_ACCESS_TOKEN" \
-  -H "x-jike-refresh-token: $JIKE_REFRESH_TOKEN" \
-  -d '{"content": "动态正文内容"}'
-```
-
-可选：添加话题 `"topicId": "<话题id>"`。
-
-### 关注用户
-
-```bash
-source .env
-curl -s -X POST "https://app.jike.ruguoapp.com/1.0/user/follow" \
-  -H "Content-Type: application/json" \
-  -H "x-jike-access-token: $JIKE_ACCESS_TOKEN" \
-  -H "x-jike-refresh-token: $JIKE_REFRESH_TOKEN" \
-  -d '{"followId": "<用户id>"}'
-```
-
-### 搜索话题
-
-```bash
-source .env
-curl -s -X POST "https://app.jike.ruguoapp.com/1.0/topic/search" \
-  -H "Content-Type: application/json" \
-  -H "x-jike-access-token: $JIKE_ACCESS_TOKEN" \
-  -H "x-jike-refresh-token: $JIKE_REFRESH_TOKEN" \
-  -d '{"keywords": "搜索关键词", "pageNo": 1}' | python3 -m json.tool
-```
-
-### 获取用户信息
-
-```bash
-source .env
-curl -s -X POST "https://app.jike.ruguoapp.com/1.0/profile/getUserInfo" \
-  -H "Content-Type: application/json" \
-  -H "x-jike-access-token: $JIKE_ACCESS_TOKEN" \
-  -H "x-jike-refresh-token: $JIKE_REFRESH_TOKEN" \
-  -d '{"username": "<用户id>"}' | python3 -m json.tool
-```
-
-## Token 刷新
-
-当 access-token 过期时（API 返回 401），使用 refresh-token 换取新的 access-token：
-
-```bash
-source .env
-NEW_TOKEN=$(curl -s -X POST "https://app.jike.ruguoapp.com/1.0/auth/refreshToken" \
-  -H "Content-Type: application/json" \
-  -H "x-jike-refresh-token: $JIKE_REFRESH_TOKEN" \
-  -d '{}' | python3 -c "import sys,json; print(json.load(sys.stdin).get('accessToken',''))")
-
-# 更新 .env
-sed -i '' "s/^JIKE_ACCESS_TOKEN=.*/JIKE_ACCESS_TOKEN=$NEW_TOKEN/" .env
-echo "Token 已更新"
-```
-
-## 错误处理
-
-- `401 Unauthorized` → access-token 过期，执行 Token 刷新步骤
-- `403 Forbidden` → 权限不足（可能账号受限）
-- `429 Too Many Requests` → 请求过频，等待后重试
-- `404 Not Found` → API 端点已变更，需用 DevTools 重新发现
-
-## 发现新端点的方法
-
-若某操作端点失效，用 Chrome DevTools 发现新端点：
-
-1. 打开 Chrome DevTools → Network 标签
-2. 在即刻网页版执行目标操作（点赞、评论等）
-3. 在 Network 面板过滤 `app.jike.ruguoapp.com` 或 `m.okjike.com` 请求
-4. 找到对应请求，查看 Request URL、Headers 和 Payload
+**API 端点和请求格式**：见 [references/api.md](references/api.md)
 
 ## 最佳实践
 
-1. 每次操作前检查 .env 存在且 token 不为空
-2. 批量操作在相邻请求间加 `sleep 1`
-3. 解析 JSON 响应用 `python3 -m json.tool` 或 `jq`
-4. 保存关注流时用 `>` 重定向到文件便于处理
-5. 不要在代码/提交中硬编码 token
-6. access-token 通常有效期数小时，refresh-token 有效期更长
-7. 如果所有请求都 401，从 Chrome 重新提取两个 token
-8. API 端点是非官方的，即刻可能随时修改，出现问题先排查端点是否变化
+- 批量操作在请求间加 `sleep 1`，避免触发风控
+- 解析 JSON 用 `python3 -m json.tool` 或 `jq`
+- Token 失效（401）时先调用 `jike_refresh_token`；若仍失败，重新运行 `bash scripts/setup.sh`
+- API 端点是非官方的，遇到 404 参考 [references/api.md](references/api.md) 中的"发现新端点"步骤
