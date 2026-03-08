@@ -126,7 +126,11 @@ jike_comment() {
     return 1
   fi
   local body
-  body=$(python3 -c "import json,sys; print(json.dumps({'targetId': sys.argv[1], 'targetType': 'ORIGINAL_POST', 'content': sys.argv[2]}))" "$post_id" "$content")
+  body=$(printf '%s' "$content" | python3 -c "
+import json, sys
+content = sys.stdin.read()
+print(json.dumps({'targetId': sys.argv[1], 'targetType': 'ORIGINAL_POST', 'content': content}))
+" "$post_id")
   _jike_print "$(jike_request "/1.0/comments/add" "$body")"
 }
 
@@ -142,13 +146,15 @@ jike_post() {
     return 1
   fi
   local body
-  body=$(python3 -c "
+  body=$(printf '%s' "$content" | python3 -c "
 import json, sys
-d = {'content': sys.argv[1], 'pictureKeys': [], 'syncToPersonalUpdates': True}
-if len(sys.argv) > 2 and sys.argv[2]:
-    d['topicId'] = sys.argv[2]
+content = sys.stdin.read()
+d = {'content': content, 'pictureKeys': [], 'syncToPersonalUpdates': True}
+topic = sys.argv[1] if len(sys.argv) > 1 and sys.argv[1] else None
+if topic:
+    d['topicId'] = topic
 print(json.dumps(d))
-" "$content" "${topic_id:-}")
+" "${topic_id:-}")
   _jike_print "$(jike_request "/1.0/originalPosts/create" "$body")"
 }
 
