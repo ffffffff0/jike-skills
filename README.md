@@ -82,7 +82,7 @@ jike_post "动态内容"
 jike_search_topic "Python"
 
 # 获取特定用户动态
-jike_user_feed "<user-id>"
+jike_user "<user-id>"
 ```
 
 ## 文件结构
