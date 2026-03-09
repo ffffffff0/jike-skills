@@ -22,27 +22,52 @@ JIKE_BASE_URL="${JIKE_BASE_URL:-https://api.ruguoapp.com}"
 
 # === 内部辅助函数 ===
 
+# _jike_is_token_error <response>
+# 返回 0（真）当响应 JSON 包含 "success": false，否则返回 1
+_jike_is_token_error() {
+  python3 -c "import json,sys; d=json.load(sys.stdin); sys.exit(0 if d.get('success') is False else 1)" \
+    <<< "$1" 2>/dev/null
+}
+
 # jike_request <endpoint> [json_body]
-# 发送通用 POST 请求，返回 JSON 响应
+# 发送通用 POST 请求，返回 JSON 响应；若 token 失效则自动刷新并重试一次
 jike_request() {
   local endpoint="$1"
   local body="${2:-{}}"
-  curl -s -X POST "${JIKE_BASE_URL}${endpoint}" \
+  local response
+  response=$(curl -s -X POST "${JIKE_BASE_URL}${endpoint}" \
     -H "Content-Type: application/json" \
     -H "x-jike-access-token: $JIKE_ACCESS_TOKEN" \
     -H "x-jike-refresh-token: $JIKE_REFRESH_TOKEN" \
     -H "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36" \
-    -d "$body"
+    -d "$body")
+  if _jike_is_token_error "$response" && jike_refresh_token >/dev/null 2>&1; then
+    response=$(curl -s -X POST "${JIKE_BASE_URL}${endpoint}" \
+      -H "Content-Type: application/json" \
+      -H "x-jike-access-token: $JIKE_ACCESS_TOKEN" \
+      -H "x-jike-refresh-token: $JIKE_REFRESH_TOKEN" \
+      -H "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36" \
+      -d "$body")
+  fi
+  echo "$response"
 }
 
 # jike_get <endpoint>
-# 发送 GET 请求，返回 JSON 响应
+# 发送 GET 请求，返回 JSON 响应；若 token 失效则自动刷新并重试一次
 jike_get() {
   local endpoint="$1"
-  curl -s -X GET "${JIKE_BASE_URL}${endpoint}" \
+  local response
+  response=$(curl -s -X GET "${JIKE_BASE_URL}${endpoint}" \
     -H "x-jike-access-token: $JIKE_ACCESS_TOKEN" \
     -H "x-jike-refresh-token: $JIKE_REFRESH_TOKEN" \
-    -H "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"
+    -H "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36")
+  if _jike_is_token_error "$response" && jike_refresh_token >/dev/null 2>&1; then
+    response=$(curl -s -X GET "${JIKE_BASE_URL}${endpoint}" \
+      -H "x-jike-access-token: $JIKE_ACCESS_TOKEN" \
+      -H "x-jike-refresh-token: $JIKE_REFRESH_TOKEN" \
+      -H "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36")
+  fi
+  echo "$response"
 }
 
 # _jike_print <response>
@@ -242,7 +267,13 @@ jike_topic_follow() {
 # 自动更新 .env 文件中的 JIKE_ACCESS_TOKEN
 jike_refresh_token() {
   local response
-  response=$(jike_request "/app_auth_tokens.refresh")
+  # Call curl directly to avoid triggering the retry loop in jike_request
+  response=$(curl -s -X POST "${JIKE_BASE_URL}/app_auth_tokens.refresh" \
+    -H "Content-Type: application/json" \
+    -H "x-jike-access-token: $JIKE_ACCESS_TOKEN" \
+    -H "x-jike-refresh-token: $JIKE_REFRESH_TOKEN" \
+    -H "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36" \
+    -d "{}")
   if [ -z "$response" ]; then
     echo "错误：请求失败，请检查网络连接或 Refresh Token 是否有效。"
     return 1
