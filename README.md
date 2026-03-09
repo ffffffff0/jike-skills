@@ -10,6 +10,7 @@
 - 可在命令行、脚本、crontab 中直接运行
 - 支持批量操作（翻页采集、批量点赞等）
 - Token 存储在 `.env` 文件中，`.gitignore` 防止意外提交
+- **access-token 过期时自动刷新并重试**，无需手动干预
 
 ## 快速开始
 
@@ -89,20 +90,17 @@ jike_user "<user-id>"
 
 ```
 jike-skills/
-├── .env.example     # Token 配置模板
-├── .gitignore       # 保护 .env 不被提交
+├── .env.example        # Token 配置模板
+├── .gitignore          # 保护 .env 不被提交
 ├── README.md
-├── SKILL.md         # Claude Code 技能主文件
-└── scripts/
-    ├── setup.sh     # Token 配置引导脚本
-    └── helpers.sh   # curl 操作函数库
+├── SKILL.md            # Claude Code 技能主文件
+├── scripts/
+│   ├── setup.sh        # Token 配置引导脚本
+│   └── helpers.sh      # curl 操作函数库（含自动刷新 token）
+└── references/
+    ├── api.md          # API 端点速查表
+    └── workflows.md    # 分页采集、批量操作等工作流示例
 ```
-
-## 示例文档
-
-- [关注流内容采集](examples/feed-collection.md)
-- [社交互动操作](examples/social-interactions.md)
-- [内容创作](examples/content-creation.md)
 
 ## 注意事项
 
