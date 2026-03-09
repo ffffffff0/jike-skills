@@ -49,15 +49,11 @@ description: |
 ### 验证 Token 有效性
 
 ```bash
-source .env
-curl -s -X POST "https://app.jike.ruguoapp.com/1.0/profile/getMyUserInfo" \
-  -H "Content-Type: application/json" \
-  -H "x-jike-access-token: $JIKE_ACCESS_TOKEN" \
-  -H "x-jike-refresh-token: $JIKE_REFRESH_TOKEN" \
-  -d '{}' | python3 -m json.tool
+source scripts/helpers.sh
+jike_me
 ```
 
-成功响应包含 `"user"` 字段；若返回 401 则 Token 失效，需重新提取。
+成功响应包含 `"screenName"` 字段；若返回错误则 Token 失效，需重新运行 `bash scripts/setup.sh`。
 
 
 ## 执行操作
@@ -75,7 +71,7 @@ jike_post "动态内容"              # 发布动态
 jike_post "内容" "<topic-id>"     # 发布带话题的动态
 jike_follow "<user-id>"           # 关注用户
 jike_search_topic "关键词"        # 搜索话题
-jike_refresh_token                # 刷新过期的 access-token
+jike_refresh_token                # 手动刷新 token（通常无需调用，失败自动触发）
 ```
 
 **API 端点和请求格式**：见 [references/api.md](references/api.md)
@@ -84,7 +80,7 @@ jike_refresh_token                # 刷新过期的 access-token
 
 ## 最佳实践
 
+- **Token 自动刷新**：access-token 过期时，`jike_request`/`jike_get` 会自动调用 `jike_refresh_token` 并重试一次，无需手动干预；若仍失败，重新运行 `bash scripts/setup.sh`
 - 批量操作在请求间加 `sleep 1`，避免触发风控
 - 解析 JSON 用 `python3 -m json.tool` 或 `jq`
-- Token 失效（401）时先调用 `jike_refresh_token`；若仍失败，重新运行 `bash scripts/setup.sh`
 - API 端点是非官方的，遇到 404 参考 [references/api.md](references/api.md) 中的"发现新端点"步骤

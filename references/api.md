@@ -59,7 +59,7 @@ x-jike-refresh-token: $JIKE_REFRESH_TOKEN
 
 | 状态/响应 | 原因 | 处理方式 |
 |-----------|------|----------|
-| `{"success":false}` | access-token 过期 | 调用 `jike_refresh_token` |
+| `{"success":false}` | access-token 过期 | 自动刷新重试（无需手动处理）；若仍失败运行 `bash scripts/setup.sh` |
 | HTTP 401 | 未认证 | 检查 header 是否正确 |
 | HTTP 404 | 端点变更 | 重新从 JS bundle 发现 |
 
